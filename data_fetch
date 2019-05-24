@@ -1,0 +1,53 @@
+library(tidycensus)
+library(mapview)
+library(dplyr)
+
+census_api_key("4b8e206a26dcf3fb692e924c9b2dcf67d3ec030a")
+Sys.getenv("CENSUS_API_KEY")
+
+##get shapefiles for spokane county
+spok_shapes <- get_acs(geography = "tract",
+                       variables = "B00001_001",
+                       state = "WA",
+                       county = "Spokane",
+                       geometry = TRUE)
+
+##load all census variables and get unique concepts
+v17 <- load_variables(2017, "acs5", cache = FALSE)
+unique(v17$concept)
+
+##build the list of concepts to request from the census api
+concepts <- c(
+              "OCCUPATION BY MEDIAN EARNINGS IN THE PAST 12 MONTHS (IN 2017 INFLATION-ADJUSTED DOLLARS) FOR THE CIVILIAN EMPLOYED POPULATION 16 YEARS AND OVER",
+#              "TRAVEL TIME TO WORK",
+#              "AGGREGATE INCOME DEFICIT (DOLLARS) IN THE PAST 12 MONTHS FOR FAMILIES BY FAMILY TYPE",
+#              "POVERTY STATUS IN THE PAST 12 MONTHS BY AGE",
+#              "RATIO OF INCOME TO POVERTY LEVEL OF FAMILIES IN THE PAST 12 MONTHS",
+#              "HOUSEHOLD INCOME IN THE PAST 12 MONTHS (IN 2017 INFLATION-ADJUSTED DOLLARS)",
+#              "MEDIAN HOUSEHOLD INCOME IN THE PAST 12 MONTHS (IN 2017 INFLATION-ADJUSTED DOLLARS)",
+#              "FAMILY INCOME IN THE PAST 12 MONTHS (IN 2017 INFLATION-ADJUSTED DOLLARS)",
+#              "GROSS RENT AS A PERCENTAGE OF HOUSEHOLD INCOME IN THE PAST 12 MONTHS",
+#              "HEALTH INSURANCE COVERAGE STATUS AND TYPE BY HOUSEHOLD INCOME IN THE PAST 12 MONTHS (IN 2017 INFLATION-ADJUSTED DOLLARS)",
+#              "GROSS RENT",
+#              "MEDIAN GROSS RENT (DOLLARS)",
+#              "AGGREGATE GROSS RENT (DOLLARS)",
+#              "MEDIAN GROSS RENT BY BEDROOMS",
+#              "BEDROOMS BY GROSS RENT",
+              "GROSS RENT AS A PERCENTAGE OF HOUSEHOLD INCOME IN THE PAST 12 MONTHS")
+
+v17sub2 <- v17[v17$concept %in% concepts, ]
+
+##make the api request for all variables associated with the concept list
+spok <- get_acs(geography = "tract",
+                variables = v17sub2$name,
+                state = "WA",
+                county = "Spokane")
+
+##merge the variable descriptions back onto the api request for ease of use and filter for variable of interest
+spok2 <- merge(spok, v17sub2, by.x = "variable", by.y = "name", all.x = TRUE)
+spok3 <- subset(spok2, label == "Estimate!!Total")
+spok4 <- merge(spok_shapes, spok3, by = "GEOID", all.x = TRUE)
+
+##clean data and map it
+spok5 <- select(spok4, GEOID, "Census Tract" = NAME.x, "Median Income" = estimate.y, geometry)
+mapview(spok5, zcol = "Median Income", legend = TRUE)
