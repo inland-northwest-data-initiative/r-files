@@ -45,7 +45,7 @@ spok <- get_acs(geography = "tract",
 
 ##merge the variable descriptions back onto the api request for ease of use and filter for variable of interest
 spok2 <- merge(spok, v17sub2, by.x = "variable", by.y = "name", all.x = TRUE)
-spok3 <- subset(spok2, label == "Estimate!!Total")
+spok3 <- subset(spok2, variable == "B24011_001")
 spok4 <- merge(spok_shapes, spok3, by = "GEOID", all.x = TRUE)
 
 ##clean data and map it
