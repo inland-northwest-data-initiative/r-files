@@ -1,0 +1,73 @@
+library(tidycensus)
+library(mapview)
+library(dplyr)
+
+census_api_key("4b8e206a26dcf3fb692e924c9b2dcf67d3ec030a")
+Sys.getenv("CENSUS_API_KEY")
+#d1 <- data(fips_codes)
+##get shapefiles for spokane county
+spok_shapes <- get_acs(geography = "tract",
+                       variables = "B00001_001",
+                       state = "WA",
+                       county = "Spokane",
+                       geometry = TRUE)
+
+cda_shapes <- get_acs(geography = "tract",
+                      variables = "B00001_001",
+                      state = "ID",
+                      county = "Kootenai County",
+                      geometry = TRUE)
+
+shapes1 <- rbind(spok_shapes, cda_shapes)
+
+##load all census variables and get unique concepts
+v17 <- load_variables(2017, "acs5", cache = FALSE)
+vars <- unique(v17$concept)
+
+##build the list of concepts to request from the census api
+concepts <- c(
+#              "OCCUPATION BY MEDIAN EARNINGS IN THE PAST 12 MONTHS (IN 2017 INFLATION-ADJUSTED DOLLARS) FOR THE CIVILIAN EMPLOYED POPULATION 16 YEARS AND OVER",
+              "TRAVEL TIME TO WORK",
+#              "MEANS OF TRANSPORTATION TO WORK BY TRAVEL TIME TO WORK",
+#              "AGGREGATE INCOME DEFICIT (DOLLARS) IN THE PAST 12 MONTHS FOR FAMILIES BY FAMILY TYPE",
+#              "POVERTY STATUS IN THE PAST 12 MONTHS BY AGE",
+#              "RATIO OF INCOME TO POVERTY LEVEL OF FAMILIES IN THE PAST 12 MONTHS",
+#              "HOUSEHOLD INCOME IN THE PAST 12 MONTHS (IN 2017 INFLATION-ADJUSTED DOLLARS)",
+#              "MEDIAN HOUSEHOLD INCOME IN THE PAST 12 MONTHS (IN 2017 INFLATION-ADJUSTED DOLLARS)",
+#              "FAMILY INCOME IN THE PAST 12 MONTHS (IN 2017 INFLATION-ADJUSTED DOLLARS)",
+#              "GROSS RENT AS A PERCENTAGE OF HOUSEHOLD INCOME IN THE PAST 12 MONTHS",
+#              "HEALTH INSURANCE COVERAGE STATUS AND TYPE BY HOUSEHOLD INCOME IN THE PAST 12 MONTHS (IN 2017 INFLATION-ADJUSTED DOLLARS)",
+#              "GROSS RENT",
+#              "MEDIAN GROSS RENT (DOLLARS)",
+#              "AGGREGATE GROSS RENT (DOLLARS)",
+#              "MEDIAN GROSS RENT BY BEDROOMS",
+#              "BEDROOMS BY GROSS RENT",
+              "GROSS RENT AS A PERCENTAGE OF HOUSEHOLD INCOME IN THE PAST 12 MONTHS")
+
+v17sub2 <- v17[v17$concept %in% concepts, ]
+
+##make the api request for all variables associated with the concept list for each county
+spok <- get_acs(geography = "tract",
+                variables = v17sub2$name,
+                county = "Spokane",
+                state = "WA"
+                )
+
+cda <- get_acs(geography = "tract",
+                variables = v17sub2$name,
+                county = "Kootenai County",
+                state = "ID"
+)
+
+data_merge1 <- rbind(spok, cda)
+
+##get max category for each tract
+spok2 <- merge(data_merge1, v17sub2, by.x = "variable", by.y = "name", all.x = TRUE)
+spok3 <- subset(spok2, concept == "TRAVEL TIME TO WORK" & label != "Estimate!!Total")
+sub1 <- group_by(spok3, NAME) %>%
+  filter(estimate == max(estimate))
+sub2 <- merge(shapes1, sub1, by = "GEOID", all.x = TRUE)
+
+##clean data and map it
+spok5 <- select(sub2, GEOID, "Census Tract" = NAME.x, "Travel Time" = label, geometry)
+mapview(spok5, zcol = "Travel Time", legend = TRUE)
